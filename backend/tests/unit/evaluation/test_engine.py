@@ -88,9 +88,12 @@ async def test_engine_persists_successful_case_and_summary(
     assert run.successful_items == 1
     assert run.failure_rate == 0
     assert run.average_latency_ms == 125.0
+    assert run.average_quality_score is not None
+    assert 0 <= run.average_quality_score <= 1
     assert run.total_cost_usd == Decimal("0.002")
     assert run.results[0].input_tokens == 12
     assert run.results[0].provider_metadata == {"total_duration_ns": 125_000_000}
+    assert run.results[0].quality_score is not None
     assert unit_of_work.commit_count == 3
     unit_of_work.runs.add_result.assert_awaited_once()
 

@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from evaluation.exceptions import EvaluationConfigurationError, PromptRenderingError
+from evaluation.metrics import MetricInput
 from evaluation.prompt_renderer import PromptRenderer
+from evaluation.scoring import EvaluationScorer
 from evaluation.unit_of_work import EvaluationUnitOfWork, EvaluationUnitOfWorkFactory
 from models.application import AIApplication
 from models.dataset import EvaluationDataset, EvaluationDatasetItem
@@ -24,11 +26,13 @@ class EvaluationEngine:
         provider_resolver: ProviderResolver,
         *,
         prompt_renderer: PromptRenderer | None = None,
+        scorer: EvaluationScorer | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._provider_resolver = provider_resolver
         self._prompt_renderer = prompt_renderer or PromptRenderer()
+        self._scorer = scorer or EvaluationScorer()
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def run(self, application_id: uuid.UUID) -> EvaluationRun:
@@ -107,6 +111,14 @@ class EvaluationEngine:
             generation = await provider.generate(
                 GenerationRequest(model=run.model, prompt=rendered_prompt)
             )
+            scores = self._scorer.score(
+                MetricInput(
+                    input_text=item.input_text,
+                    response=generation.response,
+                    expected_output=item.expected_output,
+                    expected_keywords=tuple(item.expected_keywords),
+                )
+            )
             return EvaluationResult(
                 run_id=run.id,
                 dataset_item_id=item.id,
@@ -116,6 +128,10 @@ class EvaluationEngine:
                 input_tokens=generation.usage.input_tokens,
                 output_tokens=generation.usage.output_tokens,
                 cost_usd=generation.usage.cost_usd,
+                answer_relevance=scores.answer_relevance,
+                keyword_coverage=scores.keyword_coverage,
+                hallucination_score=scores.hallucination_score,
+                quality_score=scores.quality_score,
                 provider_metadata=generation.provider_metadata,
             )
         except ProviderError as error:
@@ -133,9 +149,17 @@ class EvaluationEngine:
         latencies = [
             result.latency_ms for result in successful_results if result.latency_ms is not None
         ]
+        quality_scores = [
+            result.quality_score
+            for result in successful_results
+            if result.quality_score is not None
+        ]
         run.successful_items = len(successful_results)
         run.failure_rate = (run.total_items - run.successful_items) / run.total_items
         run.average_latency_ms = sum(latencies) / len(latencies) if latencies else None
+        run.average_quality_score = (
+            sum(quality_scores) / len(quality_scores) if quality_scores else None
+        )
         run.total_cost_usd = sum(
             (result.cost_usd for result in successful_results), start=Decimal("0")
         )

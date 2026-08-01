@@ -55,6 +55,10 @@ async def test_repository_checkpoints_run_and_eager_loads_results(
         input_tokens=2,
         output_tokens=1,
         cost_usd=Decimal("0"),
+        answer_relevance=0.8,
+        keyword_coverage=1.0,
+        hallucination_score=0.1,
+        quality_score=0.88,
         provider_metadata={},
     )
     await repository.add_result(result)
@@ -67,3 +71,4 @@ async def test_repository_checkpoints_run_and_eager_loads_results(
     assert loaded is not None
     assert len(loaded.results) == 1
     assert loaded.results[0].response == "Answer"
+    assert loaded.results[0].quality_score == pytest.approx(0.88)

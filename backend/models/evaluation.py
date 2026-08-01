@@ -77,6 +77,7 @@ class EvaluationResult(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     answer_relevance: Mapped[float | None] = mapped_column(Float)
     keyword_coverage: Mapped[float | None] = mapped_column(Float)
     hallucination_score: Mapped[float | None] = mapped_column(Float)
+    quality_score: Mapped[float | None] = mapped_column(Float)
     error_message: Mapped[str | None] = mapped_column(Text)
     provider_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
