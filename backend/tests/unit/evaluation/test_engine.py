@@ -11,7 +11,7 @@ from evaluation.exceptions import EvaluationConfigurationError
 from evaluation.unit_of_work import EvaluationUnitOfWork
 from models.application import AIApplication
 from models.dataset import EvaluationDataset
-from models.enums import EvaluationRunStatus, ReleaseDecision
+from models.enums import DeploymentStatus, EvaluationRunStatus, ReleaseDecision
 from models.evaluation import EvaluationRun
 from providers.contracts import GenerationResult, GenerationUsage, ProviderResolver
 from providers.exceptions import ProviderTimeoutError
@@ -84,7 +84,9 @@ async def test_engine_persists_successful_case_and_summary(
     run = await build_engine(unit_of_work, provider).run(application_entity.id)
 
     assert run.status is EvaluationRunStatus.COMPLETED
-    assert run.release_decision is ReleaseDecision.PENDING
+    assert run.release_decision is ReleaseDecision.APPROVED
+    assert application_entity.deployment_status is DeploymentStatus.APPROVED
+    assert run.gate_failures == []
     assert run.successful_items == 1
     assert run.failure_rate == 0
     assert run.average_latency_ms == 125.0
@@ -110,6 +112,8 @@ async def test_engine_isolates_provider_failure_per_case(
     run = await build_engine(unit_of_work, provider).run(application_entity.id)
 
     assert run.status is EvaluationRunStatus.COMPLETED
+    assert run.release_decision is ReleaseDecision.BLOCKED
+    assert application_entity.deployment_status is DeploymentStatus.BLOCKED
     assert run.successful_items == 0
     assert run.failure_rate == 1
     assert run.average_latency_ms is None
@@ -129,6 +133,8 @@ async def test_engine_marks_run_failed_on_unexpected_error(
     run = await build_engine(unit_of_work, provider).run(application_entity.id)
 
     assert run.status is EvaluationRunStatus.FAILED
+    assert run.release_decision is ReleaseDecision.BLOCKED
+    assert application_entity.deployment_status is DeploymentStatus.BLOCKED
     assert run.error_message == "Unexpected evaluation engine failure."
     assert run.results == []
     assert unit_of_work.commit_count == 2

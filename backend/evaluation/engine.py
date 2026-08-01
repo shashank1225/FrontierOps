@@ -6,11 +6,12 @@ from decimal import Decimal
 from evaluation.exceptions import EvaluationConfigurationError, PromptRenderingError
 from evaluation.metrics import MetricInput
 from evaluation.prompt_renderer import PromptRenderer
+from evaluation.release_gates import ReleaseGateEvaluator
 from evaluation.scoring import EvaluationScorer
 from evaluation.unit_of_work import EvaluationUnitOfWork, EvaluationUnitOfWorkFactory
 from models.application import AIApplication
 from models.dataset import EvaluationDataset, EvaluationDatasetItem
-from models.enums import EvaluationRunStatus, ReleaseDecision
+from models.enums import DeploymentStatus, EvaluationRunStatus, ReleaseDecision
 from models.evaluation import EvaluationResult, EvaluationRun
 from models.prompt import PromptVersion
 from providers.contracts import GenerationRequest, LLMProvider, ProviderResolver
@@ -27,12 +28,14 @@ class EvaluationEngine:
         *,
         prompt_renderer: PromptRenderer | None = None,
         scorer: EvaluationScorer | None = None,
+        release_gate_evaluator: ReleaseGateEvaluator | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._provider_resolver = provider_resolver
         self._prompt_renderer = prompt_renderer or PromptRenderer()
         self._scorer = scorer or EvaluationScorer()
+        self._release_gate_evaluator = release_gate_evaluator or ReleaseGateEvaluator()
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def run(self, application_id: uuid.UUID) -> EvaluationRun:
@@ -40,6 +43,8 @@ class EvaluationEngine:
             application, prompt, dataset = await self._load_context(unit_of_work, application_id)
             provider = self._provider_resolver.get(application.provider)
             self._validate_context(prompt, dataset)
+            if application.release_gate_policy is None:
+                raise EvaluationConfigurationError("Application has no release-gate policy.")
 
             run = EvaluationRun(
                 application_id=application.id,
@@ -65,14 +70,36 @@ class EvaluationEngine:
                     run.status = EvaluationRunStatus.FAILED
                     run.completed_at = self._clock()
                     run.error_message = "Unexpected evaluation engine failure."
+                    run.release_decision = ReleaseDecision.BLOCKED
+                    run.gate_failures = [
+                        {
+                            "metric": "evaluation_run",
+                            "operator": "completed",
+                            "threshold": 1.0,
+                            "actual": 0.0,
+                            "reason": "engine_failure",
+                        }
+                    ]
+                    application.deployment_status = DeploymentStatus.BLOCKED
                     break
                 run.results.append(result)
                 await unit_of_work.runs.add_result(result)
                 await unit_of_work.commit()
             else:
                 self._complete(run)
+                gate_result = self._release_gate_evaluator.evaluate(
+                    run, application.release_gate_policy
+                )
+                run.release_decision = gate_result.decision
+                run.gate_failures = [failure.as_record() for failure in gate_result.failures]
+                application.deployment_status = (
+                    DeploymentStatus.APPROVED
+                    if gate_result.decision is ReleaseDecision.APPROVED
+                    else DeploymentStatus.BLOCKED
+                )
 
             await unit_of_work.runs.save(run)
+            await unit_of_work.applications.save(application)
             await unit_of_work.commit()
             return run
 
