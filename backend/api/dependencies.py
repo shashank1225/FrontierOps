@@ -12,8 +12,10 @@ from evaluation.unit_of_work import SQLAlchemyEvaluationUnitOfWorkFactory
 from providers.registry import ProviderRegistry
 from repositories.applications import SQLAlchemyApplicationRepository
 from repositories.datasets import SQLAlchemyEvaluationDatasetRepository
+from repositories.evaluations import SQLAlchemyEvaluationRunRepository
 from services.applications import ApplicationService
 from services.datasets import EvaluationDatasetService
+from services.evaluation_history import EvaluationHistoryService
 from services.evaluation_jobs import EvaluationJobService
 from services.health import HealthService
 
@@ -81,4 +83,13 @@ def get_evaluation_job_service(
 
 EvaluationJobServiceDependency = Annotated[
     EvaluationJobService, Depends(get_evaluation_job_service)
+]
+
+
+def get_evaluation_history_service(session: DatabaseSession) -> EvaluationHistoryService:
+    return EvaluationHistoryService(SQLAlchemyEvaluationRunRepository(session))
+
+
+EvaluationHistoryServiceDependency = Annotated[
+    EvaluationHistoryService, Depends(get_evaluation_history_service)
 ]

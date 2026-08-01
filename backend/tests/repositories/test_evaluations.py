@@ -9,6 +9,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.compiler import compiles
 
+from evaluation.history import EvaluationRunFilter
+from models.enums import EvaluationRunStatus, ReleaseDecision
 from models.evaluation import EvaluationResult, EvaluationRun
 from repositories.evaluations import SQLAlchemyEvaluationRunRepository
 
@@ -72,3 +74,40 @@ async def test_repository_checkpoints_run_and_eager_loads_results(
     assert len(loaded.results) == 1
     assert loaded.results[0].response == "Answer"
     assert loaded.results[0].quality_score == pytest.approx(0.88)
+
+
+async def test_repository_filters_and_counts_runs(session: AsyncSession) -> None:
+    repository = SQLAlchemyEvaluationRunRepository(session)
+    application_id = uuid.uuid4()
+    for model, decision in (
+        ("llama3.2", ReleaseDecision.APPROVED),
+        ("mistral", ReleaseDecision.BLOCKED),
+    ):
+        await repository.add(
+            EvaluationRun(
+                application_id=application_id,
+                prompt_version_id=uuid.uuid4(),
+                dataset_id=uuid.uuid4(),
+                provider="ollama",
+                model=model,
+                status=EvaluationRunStatus.COMPLETED,
+                release_decision=decision,
+                total_items=1,
+                successful_items=1,
+                total_cost_usd=Decimal("0"),
+                gate_failures=[],
+            )
+        )
+    await session.commit()
+
+    runs, total = await repository.list_filtered(
+        EvaluationRunFilter(
+            application_id=application_id,
+            model="llama3.2",
+            status=EvaluationRunStatus.COMPLETED,
+            release_decision=ReleaseDecision.APPROVED,
+        )
+    )
+
+    assert total == 1
+    assert [run.model for run in runs] == ["llama3.2"]

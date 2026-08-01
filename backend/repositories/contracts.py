@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Protocol
 
+from evaluation.history import EvaluationRunFilter
 from models.application import AIApplication
 from models.dataset import EvaluationDataset
 from models.evaluation import EvaluationResult, EvaluationRun
@@ -45,6 +46,10 @@ class EvaluationRunRepository(Protocol):
     async def add_result(self, result: EvaluationResult) -> EvaluationResult: ...
 
     async def get(self, run_id: uuid.UUID) -> EvaluationRun | None: ...
+
+    async def list_filtered(
+        self, filters: EvaluationRunFilter
+    ) -> tuple[Sequence[EvaluationRun], int]: ...
 
 
 class RepositoryConflictError(Exception):

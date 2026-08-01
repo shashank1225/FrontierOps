@@ -1,6 +1,10 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from services.evaluation_history import (
+    EvaluationRunNotFoundError,
+    InvalidEvaluationRunFilterError,
+)
 from services.evaluation_jobs import EvaluationJobNotFoundError
 from services.exceptions import (
     ApplicationAlreadyExistsError,
@@ -56,4 +60,22 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content={"detail": str(error), "code": "evaluation_job_not_found"},
+        )
+
+    @app.exception_handler(EvaluationRunNotFoundError)
+    async def evaluation_run_not_found(
+        _request: Request, error: EvaluationRunNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(error), "code": "evaluation_run_not_found"},
+        )
+
+    @app.exception_handler(InvalidEvaluationRunFilterError)
+    async def invalid_evaluation_filter(
+        _request: Request, error: InvalidEvaluationRunFilterError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": str(error), "code": "invalid_evaluation_filter"},
         )
