@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 
+from api.errors import register_exception_handlers
 from api.router import api_router
 from config.database import create_database_engine, create_session_factory
 from config.logging import configure_logging
@@ -41,6 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    register_exception_handlers(app)
     app.include_router(api_router, prefix=resolved_settings.api_prefix)
     return app
 

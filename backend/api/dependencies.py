@@ -6,6 +6,8 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.database import session_scope
+from repositories.applications import SQLAlchemyApplicationRepository
+from services.applications import ApplicationService
 from services.health import HealthService
 
 
@@ -27,3 +29,11 @@ def get_health_service(session: DatabaseSession, redis: RedisClient) -> HealthSe
 
 
 HealthServiceDependency = Annotated[HealthService, Depends(get_health_service)]
+
+
+def get_application_service(session: DatabaseSession) -> ApplicationService:
+    repository = SQLAlchemyApplicationRepository(session)
+    return ApplicationService(repository=repository)
+
+
+ApplicationServiceDependency = Annotated[ApplicationService, Depends(get_application_service)]
