@@ -79,3 +79,24 @@ async def test_list_applications_applies_pagination(
     query = application_service.list.await_args.args[0]
     assert query.offset == 10
     assert query.limit == 20
+
+
+async def test_attach_dataset_updates_application(
+    client: AsyncClient,
+    application_service: AsyncMock,
+    application_entity: AIApplication,
+) -> None:
+    dataset_id = uuid.uuid4()
+    application_entity.evaluation_dataset_id = dataset_id
+    application_service.attach_evaluation_dataset.return_value = application_entity
+
+    response = await client.put(
+        f"/api/v1/applications/{application_entity.id}/evaluation-dataset",
+        json={"dataset_id": str(dataset_id)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["evaluation_dataset_id"] == str(dataset_id)
+    command = application_service.attach_evaluation_dataset.await_args.args[0]
+    assert command.application_id == application_entity.id
+    assert command.dataset_id == dataset_id

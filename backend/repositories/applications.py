@@ -55,3 +55,8 @@ class SQLAlchemyApplicationRepository(SQLAlchemyRepository[AIApplication]):
     async def dataset_exists(self, dataset_id: uuid.UUID) -> bool:
         statement = select(exists().where(EvaluationDataset.id == dataset_id))
         return bool(await self._session.scalar(statement))
+
+    async def save(self, application: AIApplication) -> AIApplication:
+        self._session.add(application)
+        await self._session.flush()
+        return application

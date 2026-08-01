@@ -31,6 +31,12 @@ class ListApplicationsQuery:
     limit: int = 50
 
 
+@dataclass(frozen=True, slots=True)
+class AttachEvaluationDatasetCommand:
+    application_id: uuid.UUID
+    dataset_id: uuid.UUID
+
+
 class ApplicationService:
     """Application-management use cases independent of HTTP and SQLAlchemy."""
 
@@ -83,3 +89,15 @@ class ApplicationService:
 
     async def list(self, query: ListApplicationsQuery) -> Sequence[AIApplication]:
         return await self._repository.list(offset=query.offset, limit=query.limit)
+
+    async def attach_evaluation_dataset(
+        self, command: AttachEvaluationDatasetCommand
+    ) -> AIApplication:
+        application = await self._repository.get(command.application_id)
+        if application is None:
+            raise ApplicationNotFoundError(command.application_id)
+        if not await self._repository.dataset_exists(command.dataset_id):
+            raise EvaluationDatasetNotFoundError(command.dataset_id)
+
+        application.evaluation_dataset_id = command.dataset_id
+        return await self._repository.save(application)

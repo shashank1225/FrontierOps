@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from models.application import AIApplication
+from models.dataset import EvaluationDataset
 
 
 class ApplicationRepository(Protocol):
@@ -17,6 +18,20 @@ class ApplicationRepository(Protocol):
     async def exists_by_name(self, name: str) -> bool: ...
 
     async def dataset_exists(self, dataset_id: uuid.UUID) -> bool: ...
+
+    async def save(self, application: AIApplication) -> AIApplication: ...
+
+
+class EvaluationDatasetRepository(Protocol):
+    """Persistence port required by dataset-management use cases."""
+
+    async def add(self, dataset: EvaluationDataset) -> EvaluationDataset: ...
+
+    async def get(self, dataset_id: uuid.UUID) -> EvaluationDataset | None: ...
+
+    async def list(self, *, offset: int, limit: int) -> Sequence[EvaluationDataset]: ...
+
+    async def exists_by_name(self, name: str) -> bool: ...
 
 
 class RepositoryConflictError(Exception):

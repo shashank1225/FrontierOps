@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.database import session_scope
 from repositories.applications import SQLAlchemyApplicationRepository
+from repositories.datasets import SQLAlchemyEvaluationDatasetRepository
 from services.applications import ApplicationService
+from services.datasets import EvaluationDatasetService
 from services.health import HealthService
 
 
@@ -37,3 +39,13 @@ def get_application_service(session: DatabaseSession) -> ApplicationService:
 
 
 ApplicationServiceDependency = Annotated[ApplicationService, Depends(get_application_service)]
+
+
+def get_evaluation_dataset_service(session: DatabaseSession) -> EvaluationDatasetService:
+    repository = SQLAlchemyEvaluationDatasetRepository(session)
+    return EvaluationDatasetService(repository=repository)
+
+
+EvaluationDatasetServiceDependency = Annotated[
+    EvaluationDatasetService, Depends(get_evaluation_dataset_service)
+]

@@ -7,10 +7,15 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.dependencies import get_application_service, get_health_service
+from api.dependencies import (
+    get_application_service,
+    get_evaluation_dataset_service,
+    get_health_service,
+)
 from config.settings import Settings
 from main import create_app
 from models.application import AIApplication
+from models.dataset import EvaluationDataset, EvaluationDatasetItem
 from models.enums import DeploymentStatus
 from models.prompt import PromptVersion
 from models.release_gate import ReleaseGatePolicy
@@ -85,4 +90,35 @@ def application_entity() -> AIApplication:
 def application_service(app: FastAPI) -> AsyncMock:
     service = AsyncMock()
     app.dependency_overrides[get_application_service] = lambda: service
+    return service
+
+
+@pytest.fixture
+def dataset_entity() -> EvaluationDataset:
+    now = datetime.now(UTC)
+    dataset_id = uuid.uuid4()
+    item = EvaluationDatasetItem(
+        id=uuid.uuid4(),
+        dataset_id=dataset_id,
+        input_text="What is the refund period?",
+        expected_output="Refunds are available within 30 days.",
+        expected_keywords=["30 days", "refund"],
+        metadata_={"category": "policy"},
+        created_at=now,
+        updated_at=now,
+    )
+    return EvaluationDataset(
+        id=dataset_id,
+        name="Support Golden Set",
+        description="Curated support evaluation cases",
+        items=[item],
+        created_at=now,
+        updated_at=now,
+    )
+
+
+@pytest.fixture
+def evaluation_dataset_service(app: FastAPI) -> AsyncMock:
+    service = AsyncMock()
+    app.dependency_overrides[get_evaluation_dataset_service] = lambda: service
     return service

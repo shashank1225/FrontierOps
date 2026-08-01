@@ -5,7 +5,12 @@ from fastapi import APIRouter, Query, status
 
 from api.dependencies import ApplicationServiceDependency
 from schemas.applications import ApplicationResponse, RegisterApplicationRequest
-from services.applications import ListApplicationsQuery, RegisterApplicationCommand
+from schemas.datasets import AttachEvaluationDatasetRequest
+from services.applications import (
+    AttachEvaluationDatasetCommand,
+    ListApplicationsQuery,
+    RegisterApplicationCommand,
+)
 
 router = APIRouter()
 
@@ -36,3 +41,18 @@ async def list_applications(
 ) -> list[ApplicationResponse]:
     applications = await service.list(ListApplicationsQuery(offset=offset, limit=limit))
     return [ApplicationResponse.model_validate(application) for application in applications]
+
+
+@router.put("/{application_id}/evaluation-dataset", response_model=ApplicationResponse)
+async def attach_evaluation_dataset(
+    application_id: uuid.UUID,
+    request: AttachEvaluationDatasetRequest,
+    service: ApplicationServiceDependency,
+) -> ApplicationResponse:
+    application = await service.attach_evaluation_dataset(
+        AttachEvaluationDatasetCommand(
+            application_id=application_id,
+            dataset_id=request.dataset_id,
+        )
+    )
+    return ApplicationResponse.model_validate(application)

@@ -6,7 +6,11 @@ import pytest
 
 from models.enums import DeploymentStatus
 from repositories.contracts import ApplicationRepository, RepositoryConflictError
-from services.applications import ApplicationService, RegisterApplicationCommand
+from services.applications import (
+    ApplicationService,
+    AttachEvaluationDatasetCommand,
+    RegisterApplicationCommand,
+)
 from services.exceptions import (
     ApplicationAlreadyExistsError,
     EvaluationDatasetNotFoundError,
@@ -74,3 +78,23 @@ async def test_register_translates_database_uniqueness_race() -> None:
 
     with pytest.raises(ApplicationAlreadyExistsError):
         await service.register(make_command())
+
+
+async def test_attach_dataset_updates_existing_application() -> None:
+    application_id = uuid.uuid4()
+    dataset_id = uuid.uuid4()
+    repository = AsyncMock()
+    application = AsyncMock()
+    application.evaluation_dataset_id = None
+    repository.get.return_value = application
+    repository.dataset_exists.return_value = True
+    repository.save.side_effect = lambda entity: entity
+    service = ApplicationService(cast(ApplicationRepository, repository))
+
+    attached = await service.attach_evaluation_dataset(
+        AttachEvaluationDatasetCommand(application_id=application_id, dataset_id=dataset_id)
+    )
+
+    assert attached is application
+    assert application.evaluation_dataset_id == dataset_id
+    repository.save.assert_awaited_once_with(application)

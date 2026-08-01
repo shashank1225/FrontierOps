@@ -18,3 +18,8 @@ class ApplicationNotFoundError(ApplicationServiceError):
 class EvaluationDatasetNotFoundError(ApplicationServiceError):
     def __init__(self, dataset_id: uuid.UUID) -> None:
         super().__init__(f"Evaluation dataset '{dataset_id}' was not found.")
+
+
+class EvaluationDatasetAlreadyExistsError(ApplicationServiceError):
+    def __init__(self, name: str) -> None:
+        super().__init__(f"An evaluation dataset named '{name}' already exists.")

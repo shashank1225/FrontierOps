@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from services.exceptions import (
     ApplicationAlreadyExistsError,
     ApplicationNotFoundError,
+    EvaluationDatasetAlreadyExistsError,
     EvaluationDatasetNotFoundError,
 )
 
@@ -34,6 +35,15 @@ def register_exception_handlers(app: FastAPI) -> None:
         _request: Request, error: EvaluationDatasetNotFoundError
     ) -> JSONResponse:
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_404_NOT_FOUND,
             content={"detail": str(error), "code": "evaluation_dataset_not_found"},
+        )
+
+    @app.exception_handler(EvaluationDatasetAlreadyExistsError)
+    async def dataset_conflict(
+        _request: Request, error: EvaluationDatasetAlreadyExistsError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": str(error), "code": "evaluation_dataset_already_exists"},
         )
