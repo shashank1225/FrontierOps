@@ -7,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from config.database import session_scope
 from evaluation.engine import EvaluationEngine
+from evaluation.redis_queue import RedisEvaluationJobQueue
 from evaluation.unit_of_work import SQLAlchemyEvaluationUnitOfWorkFactory
 from providers.registry import ProviderRegistry
 from repositories.applications import SQLAlchemyApplicationRepository
 from repositories.datasets import SQLAlchemyEvaluationDatasetRepository
 from services.applications import ApplicationService
 from services.datasets import EvaluationDatasetService
+from services.evaluation_jobs import EvaluationJobService
 from services.health import HealthService
 
 
@@ -65,4 +67,18 @@ def get_evaluation_dataset_service(session: DatabaseSession) -> EvaluationDatase
 
 EvaluationDatasetServiceDependency = Annotated[
     EvaluationDatasetService, Depends(get_evaluation_dataset_service)
+]
+
+
+def get_evaluation_job_service(
+    session: DatabaseSession, redis: RedisClient
+) -> EvaluationJobService:
+    return EvaluationJobService(
+        applications=SQLAlchemyApplicationRepository(session),
+        queue=RedisEvaluationJobQueue(redis),
+    )
+
+
+EvaluationJobServiceDependency = Annotated[
+    EvaluationJobService, Depends(get_evaluation_job_service)
 ]

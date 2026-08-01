@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from services.evaluation_jobs import EvaluationJobNotFoundError
 from services.exceptions import (
     ApplicationAlreadyExistsError,
     ApplicationNotFoundError,
@@ -46,4 +47,13 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content={"detail": str(error), "code": "evaluation_dataset_already_exists"},
+        )
+
+    @app.exception_handler(EvaluationJobNotFoundError)
+    async def evaluation_job_not_found(
+        _request: Request, error: EvaluationJobNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(error), "code": "evaluation_job_not_found"},
         )

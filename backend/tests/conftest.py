@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from api.dependencies import (
     get_application_service,
     get_evaluation_dataset_service,
+    get_evaluation_job_service,
     get_health_service,
 )
 from config.settings import Settings
@@ -121,4 +122,11 @@ def dataset_entity() -> EvaluationDataset:
 def evaluation_dataset_service(app: FastAPI) -> AsyncMock:
     service = AsyncMock()
     app.dependency_overrides[get_evaluation_dataset_service] = lambda: service
+    return service
+
+
+@pytest.fixture
+def evaluation_job_service(app: FastAPI) -> AsyncMock:
+    service = AsyncMock()
+    app.dependency_overrides[get_evaluation_job_service] = lambda: service
     return service
