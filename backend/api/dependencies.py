@@ -3,9 +3,11 @@ from typing import Annotated, cast
 
 from fastapi import Depends, Request
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from config.database import session_scope
+from evaluation.engine import EvaluationEngine
+from evaluation.unit_of_work import SQLAlchemyEvaluationUnitOfWorkFactory
 from providers.registry import ProviderRegistry
 from repositories.applications import SQLAlchemyApplicationRepository
 from repositories.datasets import SQLAlchemyEvaluationDatasetRepository
@@ -25,6 +27,15 @@ def get_redis(request: Request) -> Redis:
 
 def get_provider_registry(request: Request) -> ProviderRegistry:
     return cast(ProviderRegistry, request.app.state.provider_registry)
+
+
+def get_evaluation_engine(request: Request) -> EvaluationEngine:
+    session_factory = cast(async_sessionmaker[AsyncSession], request.app.state.session_factory)
+    registry = get_provider_registry(request)
+    return EvaluationEngine(
+        unit_of_work_factory=SQLAlchemyEvaluationUnitOfWorkFactory(session_factory),
+        provider_resolver=registry,
+    )
 
 
 DatabaseSession = Annotated[AsyncSession, Depends(get_database_session)]

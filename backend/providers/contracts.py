@@ -57,3 +57,9 @@ class LLMProvider(Protocol):
     def name(self) -> str: ...
 
     async def generate(self, request: GenerationRequest) -> GenerationResult: ...
+
+
+class ProviderResolver(Protocol):
+    """Port used by orchestration code to resolve configured providers."""
+
+    def get(self, name: str) -> LLMProvider: ...

@@ -4,6 +4,7 @@ from typing import Protocol
 
 from models.application import AIApplication
 from models.dataset import EvaluationDataset
+from models.evaluation import EvaluationResult, EvaluationRun
 
 
 class ApplicationRepository(Protocol):
@@ -32,6 +33,18 @@ class EvaluationDatasetRepository(Protocol):
     async def list(self, *, offset: int, limit: int) -> Sequence[EvaluationDataset]: ...
 
     async def exists_by_name(self, name: str) -> bool: ...
+
+
+class EvaluationRunRepository(Protocol):
+    """Persistence port for evaluation run lifecycle and case results."""
+
+    async def add(self, run: EvaluationRun) -> EvaluationRun: ...
+
+    async def save(self, run: EvaluationRun) -> EvaluationRun: ...
+
+    async def add_result(self, result: EvaluationResult) -> EvaluationResult: ...
+
+    async def get(self, run_id: uuid.UUID) -> EvaluationRun | None: ...
 
 
 class RepositoryConflictError(Exception):
