@@ -6,6 +6,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.database import session_scope
+from providers.registry import ProviderRegistry
 from repositories.applications import SQLAlchemyApplicationRepository
 from repositories.datasets import SQLAlchemyEvaluationDatasetRepository
 from services.applications import ApplicationService
@@ -22,8 +23,13 @@ def get_redis(request: Request) -> Redis:
     return cast(Redis, request.app.state.redis)
 
 
+def get_provider_registry(request: Request) -> ProviderRegistry:
+    return cast(ProviderRegistry, request.app.state.provider_registry)
+
+
 DatabaseSession = Annotated[AsyncSession, Depends(get_database_session)]
 RedisClient = Annotated[Redis, Depends(get_redis)]
+ProviderRegistryDependency = Annotated[ProviderRegistry, Depends(get_provider_registry)]
 
 
 def get_health_service(session: DatabaseSession, redis: RedisClient) -> HealthService:

@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
@@ -10,6 +11,8 @@ from api.router import api_router
 from config.database import create_database_engine, create_session_factory
 from config.logging import configure_logging
 from config.settings import Settings, get_settings
+from providers.ollama import OllamaProvider
+from providers.registry import ProviderRegistry
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -22,10 +25,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_database_engine(resolved_settings)
         redis = Redis.from_url(str(resolved_settings.redis_url), decode_responses=True)
+        provider_client = httpx.AsyncClient(
+            base_url=str(resolved_settings.ollama_base_url).rstrip("/"),
+            timeout=httpx.Timeout(resolved_settings.provider_timeout_seconds),
+        )
+        provider_registry = ProviderRegistry()
+        provider_registry.register(
+            OllamaProvider(provider_client, keep_alive=resolved_settings.ollama_keep_alive)
+        )
         app.state.engine = engine
         app.state.session_factory = create_session_factory(engine)
         app.state.redis = redis
+        app.state.provider_registry = provider_registry
         yield
+        await provider_client.aclose()
         await redis.aclose()
         await engine.dispose()
 

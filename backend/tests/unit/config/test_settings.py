@@ -13,3 +13,9 @@ def test_settings_accept_environment_overrides(monkeypatch: pytest.MonkeyPatch) 
 
 def test_settings_use_versioned_api_prefix() -> None:
     assert Settings().api_prefix == "/api/v1"
+
+
+def test_settings_define_bounded_provider_timeout() -> None:
+    settings = Settings(provider_timeout_seconds=30)
+
+    assert settings.provider_timeout_seconds == 30

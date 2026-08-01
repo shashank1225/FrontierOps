@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://frontierops:frontierops@localhost:5432/frontierops"
     redis_url: RedisDsn = RedisDsn("redis://localhost:6379/0")
     ollama_base_url: AnyHttpUrl = AnyHttpUrl("http://localhost:11434")
+    ollama_keep_alive: str = "5m"
+    provider_timeout_seconds: float = Field(default=120.0, gt=0, le=1800)
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     database_echo: bool = False
 
