@@ -52,3 +52,14 @@ npm run lint
 npm run typecheck
 npm test
 ```
+
+Run the same deterministic AI release gate enforced by CI:
+
+```bash
+cd backend
+python -m evaluation.ci_gate \
+  --suite evaluation/ci_suite.json \
+  --report artifacts/ci-evaluation-report.json
+```
+
+The command exits non-zero when quality, latency, failure-rate, or cost thresholds fail. GitHub Actions uploads the JSON report even when deployment is blocked.

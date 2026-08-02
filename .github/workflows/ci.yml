@@ -43,8 +43,21 @@ jobs:
       - run: python -m ruff check .
       - run: python -m mypy .
       - run: python -m pytest --cov=. --cov-report=term-missing
+      - name: Enforce AI release gate
+        run: >-
+          python -m evaluation.ci_gate
+          --suite evaluation/ci_suite.json
+          --report artifacts/ci-evaluation-report.json
+      - name: Upload evaluation report
+        if: ${{ always() && hashFiles('backend/artifacts/ci-evaluation-report.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontierops-evaluation-report
+          path: backend/artifacts/ci-evaluation-report.json
+          if-no-files-found: error
 
   container-build:
+    needs: [frontend-quality, backend-quality]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

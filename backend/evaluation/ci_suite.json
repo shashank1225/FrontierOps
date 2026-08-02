@@ -1,0 +1,43 @@
+{
+  "name": "frontierops-smoke-evaluation",
+  "provider": "fixture",
+  "model": "deterministic-ci-model",
+  "thresholds": {
+    "minimum_quality_score": 0.85,
+    "maximum_latency_ms": 1000,
+    "maximum_failure_rate": 0.0,
+    "maximum_cost_usd": 0.01
+  },
+  "cases": [
+    {
+      "name": "refund-policy",
+      "input_text": "What is the refund period?",
+      "expected_output": "Refunds are available within 30 days.",
+      "expected_keywords": ["refund", "30 days"],
+      "response": "Refunds are available within 30 days.",
+      "succeeded": true,
+      "latency_ms": 180,
+      "cost_usd": "0.0004"
+    },
+    {
+      "name": "support-hours",
+      "input_text": "When is customer support available?",
+      "expected_output": "Customer support is available Monday through Friday.",
+      "expected_keywords": ["Monday", "Friday"],
+      "response": "Customer support is available Monday through Friday.",
+      "succeeded": true,
+      "latency_ms": 220,
+      "cost_usd": "0.0005"
+    },
+    {
+      "name": "data-retention",
+      "input_text": "How long are audit logs retained?",
+      "expected_output": "Audit logs are retained for 90 days.",
+      "expected_keywords": ["audit logs", "90 days"],
+      "response": "Audit logs are retained for 90 days.",
+      "succeeded": true,
+      "latency_ms": 205,
+      "cost_usd": "0.0004"
+    }
+  ]
+}
