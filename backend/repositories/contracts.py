@@ -6,6 +6,7 @@ from evaluation.history import EvaluationRunFilter
 from models.application import AIApplication
 from models.dataset import EvaluationDataset
 from models.evaluation import EvaluationResult, EvaluationRun
+from models.prompt import PromptVersion
 
 
 class ApplicationRepository(Protocol):
@@ -50,6 +51,29 @@ class EvaluationRunRepository(Protocol):
     async def list_filtered(
         self, filters: EvaluationRunFilter
     ) -> tuple[Sequence[EvaluationRun], int]: ...
+
+    async def get_latest_completed(
+        self, application_id: uuid.UUID, prompt_version_id: uuid.UUID
+    ) -> EvaluationRun | None: ...
+
+
+class PromptVersionRepository(Protocol):
+    async def create_next(
+        self,
+        application_id: uuid.UUID,
+        template: str,
+        change_summary: str | None,
+    ) -> PromptVersion | None: ...
+
+    async def get_for_application(
+        self, application_id: uuid.UUID, prompt_version_id: uuid.UUID
+    ) -> PromptVersion | None: ...
+
+    async def list_for_application(self, application_id: uuid.UUID) -> Sequence[PromptVersion]: ...
+
+    async def activate(
+        self, application_id: uuid.UUID, prompt_version_id: uuid.UUID
+    ) -> PromptVersion | None: ...
 
 
 class RepositoryConflictError(Exception):

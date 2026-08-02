@@ -12,6 +12,10 @@ from services.exceptions import (
     EvaluationDatasetAlreadyExistsError,
     EvaluationDatasetNotFoundError,
 )
+from services.prompt_versions import (
+    PromptVersionEvaluationNotFoundError,
+    PromptVersionNotFoundError,
+)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -78,4 +82,22 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": str(error), "code": "invalid_evaluation_filter"},
+        )
+
+    @app.exception_handler(PromptVersionNotFoundError)
+    async def prompt_version_not_found(
+        _request: Request, error: PromptVersionNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(error), "code": "prompt_version_not_found"},
+        )
+
+    @app.exception_handler(PromptVersionEvaluationNotFoundError)
+    async def prompt_evaluation_not_found(
+        _request: Request, error: PromptVersionEvaluationNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": str(error), "code": "prompt_evaluation_not_found"},
         )

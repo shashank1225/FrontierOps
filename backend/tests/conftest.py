@@ -13,6 +13,7 @@ from api.dependencies import (
     get_evaluation_history_service,
     get_evaluation_job_service,
     get_health_service,
+    get_prompt_version_service,
 )
 from config.settings import Settings
 from main import create_app
@@ -137,4 +138,11 @@ def evaluation_job_service(app: FastAPI) -> AsyncMock:
 def evaluation_history_service(app: FastAPI) -> AsyncMock:
     service = AsyncMock()
     app.dependency_overrides[get_evaluation_history_service] = lambda: service
+    return service
+
+
+@pytest.fixture
+def prompt_version_service(app: FastAPI) -> AsyncMock:
+    service = AsyncMock()
+    app.dependency_overrides[get_prompt_version_service] = lambda: service
     return service

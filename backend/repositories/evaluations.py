@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from evaluation.history import EvaluationRunFilter
+from models.enums import EvaluationRunStatus
 from models.evaluation import EvaluationResult, EvaluationRun
 from repositories.base import SQLAlchemyRepository
 
@@ -63,3 +64,18 @@ class SQLAlchemyEvaluationRunRepository(SQLAlchemyRepository[EvaluationRun]):
             .limit(filters.limit)
         )
         return (await self._session.scalars(statement)).all(), total
+
+    async def get_latest_completed(
+        self, application_id: uuid.UUID, prompt_version_id: uuid.UUID
+    ) -> EvaluationRun | None:
+        statement = (
+            select(EvaluationRun)
+            .where(
+                EvaluationRun.application_id == application_id,
+                EvaluationRun.prompt_version_id == prompt_version_id,
+                EvaluationRun.status == EvaluationRunStatus.COMPLETED,
+            )
+            .order_by(EvaluationRun.completed_at.desc(), EvaluationRun.id.desc())
+            .limit(1)
+        )
+        return (await self._session.scalars(statement)).one_or_none()

@@ -13,11 +13,13 @@ from providers.registry import ProviderRegistry
 from repositories.applications import SQLAlchemyApplicationRepository
 from repositories.datasets import SQLAlchemyEvaluationDatasetRepository
 from repositories.evaluations import SQLAlchemyEvaluationRunRepository
+from repositories.prompts import SQLAlchemyPromptVersionRepository
 from services.applications import ApplicationService
 from services.datasets import EvaluationDatasetService
 from services.evaluation_history import EvaluationHistoryService
 from services.evaluation_jobs import EvaluationJobService
 from services.health import HealthService
+from services.prompt_versions import PromptVersionService
 
 
 async def get_database_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -92,4 +94,16 @@ def get_evaluation_history_service(session: DatabaseSession) -> EvaluationHistor
 
 EvaluationHistoryServiceDependency = Annotated[
     EvaluationHistoryService, Depends(get_evaluation_history_service)
+]
+
+
+def get_prompt_version_service(session: DatabaseSession) -> PromptVersionService:
+    return PromptVersionService(
+        prompts=SQLAlchemyPromptVersionRepository(session),
+        runs=SQLAlchemyEvaluationRunRepository(session),
+    )
+
+
+PromptVersionServiceDependency = Annotated[
+    PromptVersionService, Depends(get_prompt_version_service)
 ]
