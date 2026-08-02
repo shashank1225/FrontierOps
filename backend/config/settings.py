@@ -30,7 +30,13 @@ class Settings(BaseSettings):
     otlp_endpoint: AnyHttpUrl = AnyHttpUrl("http://localhost:4318")
     trace_sample_ratio: float = Field(default=1.0, ge=0, le=1)
     worker_metrics_port: int = Field(default=9000, ge=1, le=65535)
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:5173",
+        ]
+    )
     database_echo: bool = False
 
 

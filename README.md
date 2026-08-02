@@ -2,17 +2,21 @@
 
 FrontierOps is an AI evaluation, deployment, and observability platform for LLM-powered applications. It is designed as a production engineering portfolio project and follows Clean Architecture boundaries.
 
-## Foundation
+## Platform capabilities
 
-This initial increment provides:
+The current platform provides:
 
 - Python 3.12 FastAPI service
 - typed environment configuration
 - async SQLAlchemy and PostgreSQL models
 - Alembic migrations
 - Redis and Ollama development dependencies
+- provider-agnostic model execution and evaluation scoring
+- asynchronous evaluation jobs, history, release gates, and prompt comparison
+- OpenTelemetry tracing, Prometheus metrics, Tempo, and Grafana
+- responsive React and TypeScript operations dashboard
 - Docker Compose orchestration
-- unit and integration test foundations
+- backend and frontend quality gates in GitHub Actions
 
 ## Local development
 
@@ -21,7 +25,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The API is available at `http://localhost:8000`, with health endpoints at `/api/v1/health/live` and `/api/v1/health/ready`.
+The dashboard is available at `http://localhost:3001`. The API is available at `http://localhost:8000`, with health endpoints at `/api/v1/health/live` and `/api/v1/health/ready`.
 
 Observability endpoints:
 
@@ -37,4 +41,14 @@ Run backend checks in a Python 3.12 environment:
 ```bash
 python -m pip install -e "./backend[dev]"
 make lint typecheck test
+```
+
+Run frontend checks with Node.js 22.13 or newer:
+
+```bash
+cd frontend
+npm ci
+npm run lint
+npm run typecheck
+npm test
 ```
