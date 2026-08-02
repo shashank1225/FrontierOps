@@ -13,6 +13,7 @@ from config.database import create_database_engine, create_session_factory
 from config.logging import configure_logging
 from config.settings import Settings, get_settings
 from middleware.metrics import RequestMetricsMiddleware
+from middleware.security import SecurityHeadersMiddleware
 from observability.telemetry import (
     configure_telemetry,
     instrument_fastapi,
@@ -56,7 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="FrontierOps API",
-        version="0.1.0",
+        version="1.0.0",
         description="AI evaluation, deployment, and observability platform",
         lifespan=lifespan,
     )
@@ -68,6 +69,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RequestMetricsMiddleware)
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        production=resolved_settings.environment == "production",
+    )
     register_exception_handlers(app)
     app.include_router(api_router, prefix=resolved_settings.api_prefix)
     app.mount("/metrics", make_asgi_app())

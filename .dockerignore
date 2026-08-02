@@ -7,5 +7,7 @@
 **/.ruff_cache
 frontend/node_modules
 frontend/dist
+frontend/.vinext
+frontend/.wrangler
+frontend/coverage
 .env
-

@@ -12,6 +12,7 @@ RUN npm run build
 FROM node:22.14-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app ./
+COPY --from=build --chown=node:node /app ./
+USER node
 EXPOSE 3000
 CMD ["npm", "run", "start", "--", "--host", "0.0.0.0"]

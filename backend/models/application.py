@@ -28,7 +28,13 @@ class AIApplication(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         index=True,
     )
     active_prompt_version_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("prompt_versions.id", ondelete="SET NULL")
+        UUID(as_uuid=True),
+        ForeignKey(
+            "prompt_versions.id",
+            name="fk_ai_applications_active_prompt_version_id_prompt_versions",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
     )
     evaluation_dataset_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("evaluation_datasets.id", ondelete="SET NULL")

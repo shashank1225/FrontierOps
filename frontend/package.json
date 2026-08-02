@@ -1,6 +1,6 @@
 {
   "name": "frontierops-dashboard",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "overrides": {
     "postcss": "8.5.18",

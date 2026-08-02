@@ -56,8 +56,41 @@ jobs:
           path: backend/artifacts/ci-evaluation-report.json
           if-no-files-found: error
 
+  migration-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: frontierops
+          POSTGRES_USER: frontierops
+          POSTGRES_PASSWORD: frontierops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U frontierops -d frontierops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      FRONTIEROPS_DATABASE_URL: postgresql+asyncpg://frontierops:frontierops@localhost:5432/frontierops
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e .
+      - run: alembic upgrade head
+      - run: alembic check
+
   container-build:
-    needs: [frontend-quality, backend-quality]
+    needs: [frontend-quality, backend-quality, migration-check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

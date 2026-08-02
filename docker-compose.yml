@@ -11,8 +11,30 @@ services:
       - "3001:3000"
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    init: true
     restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      FRONTIEROPS_DATABASE_URL: postgresql+asyncpg://frontierops:frontierops@postgres:5432/frontierops
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   api:
     build:
@@ -30,12 +52,21 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       otel-collector:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    init: true
     restart: unless-stopped
 
   worker:
@@ -56,12 +87,21 @@ services:
     expose:
       - "9000"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       otel-collector:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    init: true
     restart: unless-stopped
 
   postgres:
@@ -135,8 +175,10 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - api
-      - worker
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
     restart: unless-stopped
 
   grafana:
