@@ -23,5 +23,9 @@ test("server-renders the FrontierOps dashboard shell", async () => {
   assert.match(html, /Operational overview/);
   assert.match(html, /Release readiness/);
   assert.match(html, /Recent evaluation runs/);
+  assert.match(html, /Applications/);
+  assert.match(html, /Evaluations/);
+  assert.match(html, /Prompt versions/);
+  assert.match(html, /Observability/);
   assert.doesNotMatch(html, /site-creator|vinext-starter|codex-preview/i);
 });

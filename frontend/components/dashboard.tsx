@@ -35,14 +35,22 @@ import {
 import { api, type Application, type EvaluationRun } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  ApplicationsPanel,
+  EvaluationsPanel,
+  ObservabilityPanel,
+  PromptsPanel,
+} from "@/components/workflow-panels";
 
 const navItems = [
-  [LayoutDashboard, "Overview", true],
-  [AppWindow, "Applications", false],
-  [FlaskConical, "Evaluations", false],
-  [GitBranch, "Prompt versions", false],
-  [Activity, "Observability", false],
+  [LayoutDashboard, "Overview"],
+  [AppWindow, "Applications"],
+  [FlaskConical, "Evaluations"],
+  [GitBranch, "Prompt versions"],
+  [Activity, "Observability"],
 ] as const;
+
+type View = (typeof navItems)[number][1];
 
 function formatNumber(value: number | null, suffix = "") {
   return value === null ? "—" : `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}${suffix}`;
@@ -62,6 +70,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [view, setView] = useState<View>("Overview");
 
   const load = useCallback(() => {
     const controller = new AbortController();
@@ -119,9 +128,9 @@ export function Dashboard() {
         <button className="mobile-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation"><X /></button>
         <nav className="nav-list" aria-label="Primary navigation">
           <p className="nav-label">Workspace</p>
-          {navItems.map(([Icon, label, active]) => (
-            <button type="button" className={`nav-item ${active ? "active" : ""}`} key={label}>
-              <Icon size={18} /><span>{label}</span>{active && <span className="nav-dot" />}
+          {navItems.map(([Icon, label]) => (
+            <button type="button" className={`nav-item ${view === label ? "active" : ""}`} key={label} onClick={() => { setView(label); setMenuOpen(false); }}>
+              <Icon size={18} /><span>{label}</span>{view === label && <span className="nav-dot" />}
             </button>
           ))}
         </nav>
@@ -139,9 +148,10 @@ export function Dashboard() {
         </header>
 
         <div className="page-content">
+          {view === "Overview" ? <>
           <section className="page-heading">
             <div><p className="eyebrow">AI control plane</p><h1>Operational overview</h1><p>Quality, performance, and release readiness across your AI applications.</p></div>
-            <button className="primary-button"><FlaskConical size={17} />Run evaluation</button>
+            <button className="primary-button" onClick={() => setView("Evaluations")}><FlaskConical size={17} />Run evaluation</button>
           </section>
 
           {error && <div className="connection-banner"><div><strong>Backend connection unavailable</strong><span>Start the FrontierOps API to load live platform data.</span></div><button onClick={load}><RefreshCw size={15} />Retry</button></div>}
@@ -188,7 +198,7 @@ export function Dashboard() {
           </section>
 
           <Card className="runs-card">
-            <div className="card-heading"><div><h2>Recent evaluation runs</h2><p>Latest model validations and gate decisions</p></div><button className="text-button">View history <ChevronRight size={15} /></button></div>
+            <div className="card-heading"><div><h2>Recent evaluation runs</h2><p>Latest model validations and gate decisions</p></div><button className="text-button" onClick={() => setView("Evaluations")}>View history <ChevronRight size={15} /></button></div>
             <div className="table-wrap"><table><thead><tr><th>Application</th><th>Model</th><th>Quality</th><th>Latency</th><th>Cost</th><th>Decision</th><th>Run</th></tr></thead><tbody>
               {runs.slice(0, 6).map((run) => {
                 const app = applications.find((item) => item.id === run.application_id);
@@ -197,6 +207,10 @@ export function Dashboard() {
               {!runs.length && <tr><td colSpan={7}><EmptyList label="No evaluation runs yet" /></td></tr>}
             </tbody></table></div>
           </Card>
+          </> : view === "Applications" ? <ApplicationsPanel applications={applications} refresh={load} />
+            : view === "Evaluations" ? <EvaluationsPanel applications={applications} runs={runs} refresh={load} />
+            : view === "Prompt versions" ? <PromptsPanel applications={applications} refresh={load} />
+            : <ObservabilityPanel />}
         </div>
       </main>
       {menuOpen && <button className="scrim" onClick={() => setMenuOpen(false)} aria-label="Close navigation overlay" />}
