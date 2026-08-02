@@ -1,0 +1,49 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "targets": [{"expr": "sum(rate(frontierops_api_requests_total[5m]))", "legendFormat": "requests/sec"}],
+      "title": "API Request Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(frontierops_api_request_duration_seconds_bucket[5m])))", "legendFormat": "p95"}],
+      "title": "API p95 Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "targets": [{"expr": "sum by (status, release_decision) (increase(frontierops_evaluation_runs_total[1h]))", "legendFormat": "{{status}} / {{release_decision}}"}],
+      "title": "Evaluation Outcomes (1h)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, provider, model) (rate(frontierops_model_call_duration_seconds_bucket[5m])))", "legendFormat": "{{provider}} / {{model}}"}],
+      "title": "Model p95 Latency",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 41,
+  "tags": ["frontierops", "ai-platform"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "FrontierOps Overview",
+  "uid": "frontierops-overview",
+  "version": 1
+}

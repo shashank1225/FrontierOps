@@ -2,6 +2,9 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
+from time import perf_counter
+
+from opentelemetry import trace
 
 from evaluation.exceptions import EvaluationConfigurationError, PromptRenderingError
 from evaluation.metrics import MetricInput
@@ -14,8 +17,11 @@ from models.dataset import EvaluationDataset, EvaluationDatasetItem
 from models.enums import DeploymentStatus, EvaluationRunStatus, ReleaseDecision
 from models.evaluation import EvaluationResult, EvaluationRun
 from models.prompt import PromptVersion
+from observability.metrics import EVALUATION_DURATION, EVALUATION_RUNS
 from providers.contracts import GenerationRequest, LLMProvider, ProviderResolver
 from providers.exceptions import ProviderError
+
+tracer = trace.get_tracer(__name__)
 
 
 class EvaluationEngine:
@@ -39,6 +45,19 @@ class EvaluationEngine:
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def run(self, application_id: uuid.UUID) -> EvaluationRun:
+        started_at = perf_counter()
+        with tracer.start_as_current_span(
+            "evaluation.run", attributes={"frontierops.application.id": str(application_id)}
+        ) as span:
+            run = await self._run(application_id)
+            span.set_attribute("frontierops.evaluation.run_id", str(run.id))
+            span.set_attribute("frontierops.evaluation.status", run.status.value)
+            span.set_attribute("frontierops.release.decision", run.release_decision.value)
+            EVALUATION_RUNS.labels(run.status.value, run.release_decision.value).inc()
+            EVALUATION_DURATION.labels(run.provider, run.model).observe(perf_counter() - started_at)
+            return run
+
+    async def _run(self, application_id: uuid.UUID) -> EvaluationRun:
         async with self._unit_of_work_factory() as unit_of_work:
             application, prompt, dataset = await self._load_context(unit_of_work, application_id)
             provider = self._provider_resolver.get(application.provider)
@@ -65,7 +84,11 @@ class EvaluationEngine:
 
             for item in dataset.items:
                 try:
-                    result = await self._execute_case(run, prompt, item, provider)
+                    with tracer.start_as_current_span(
+                        "evaluation.case",
+                        attributes={"frontierops.dataset_item.id": str(item.id)},
+                    ):
+                        result = await self._execute_case(run, prompt, item, provider)
                 except Exception:
                     run.status = EvaluationRunStatus.FAILED
                     run.completed_at = self._clock()

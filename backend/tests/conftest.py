@@ -31,6 +31,7 @@ def app() -> FastAPI:
         environment="test",
         database_url="sqlite+aiosqlite:///:memory:",
         redis_url="redis://localhost:6379/15",
+        telemetry_enabled=False,
     )
     return create_app(settings)
 
