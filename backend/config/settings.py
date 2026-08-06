@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, RedisDsn
+from pydantic import AliasChoices, AnyHttpUrl, Field, RedisDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +38,38 @@ class Settings(BaseSettings):
         ]
     )
     database_echo: bool = False
+    servicenow_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("SERVICENOW_ENABLED", "FRONTIEROPS_SERVICENOW_ENABLED"),
+    )
+    servicenow_instance_url: AnyHttpUrl | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SERVICENOW_INSTANCE_URL", "FRONTIEROPS_SERVICENOW_INSTANCE_URL"
+        ),
+    )
+    servicenow_username: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SERVICENOW_USERNAME", "FRONTIEROPS_SERVICENOW_USERNAME"),
+    )
+    servicenow_password: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SERVICENOW_PASSWORD", "FRONTIEROPS_SERVICENOW_PASSWORD"),
+    )
+    servicenow_incident_table: str = Field(
+        default="incident",
+        pattern=r"^[A-Za-z0-9_]+$",
+        validation_alias=AliasChoices(
+            "SERVICENOW_INCIDENT_TABLE", "FRONTIEROPS_SERVICENOW_INCIDENT_TABLE"
+        ),
+    )
+    servicenow_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    servicenow_max_attempts: int = Field(default=3, ge=1, le=10)
+    aws_region: str = "us-east-1"
+    s3_reports_bucket: str | None = None
+    s3_endpoint_url: AnyHttpUrl | None = None
+    cloudwatch_metrics_enabled: bool = False
+    cloudwatch_namespace: str = "FrontierOps"
 
 
 @lru_cache

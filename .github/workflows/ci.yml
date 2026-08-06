@@ -89,8 +89,20 @@ jobs:
       - run: alembic upgrade head
       - run: alembic check
 
+  terraform-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+      - working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+      - working-directory: infra/terraform
+        run: terraform init -backend=false && terraform validate
+
   container-build:
-    needs: [frontend-quality, backend-quality, migration-check]
+    needs: [frontend-quality, backend-quality, migration-check, terraform-quality]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

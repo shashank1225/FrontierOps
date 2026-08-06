@@ -11,6 +11,7 @@ from evaluation.engine import EvaluationEngine
 from evaluation.redis_queue import RedisEvaluationJobQueue
 from evaluation.unit_of_work import SQLAlchemyEvaluationUnitOfWorkFactory
 from evaluation.worker import EvaluationWorker
+from integrations.factory import build_completion_service
 from observability.telemetry import configure_telemetry, instrument_runtime, uninstrument_runtime
 from providers.ollama import OllamaProvider
 from providers.registry import ProviderRegistry
@@ -32,7 +33,9 @@ async def run_worker() -> None:
     registry.register(OllamaProvider(provider_client, keep_alive=settings.ollama_keep_alive))
     instrument_runtime(engine, provider_client, telemetry)
     evaluation_engine = EvaluationEngine(
-        SQLAlchemyEvaluationUnitOfWorkFactory(session_factory), registry
+        SQLAlchemyEvaluationUnitOfWorkFactory(session_factory),
+        registry,
+        completion_service=build_completion_service(settings),
     )
     worker = EvaluationWorker(RedisEvaluationJobQueue(redis), evaluation_engine)
     try:

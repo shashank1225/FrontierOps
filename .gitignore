@@ -1,4 +1,8 @@
 .env
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
 .venv/
 __pycache__/
 *.py[cod]

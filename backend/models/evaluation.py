@@ -3,12 +3,18 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, Numeric, Text
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import ENUM as PostgreSQLEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from models.enums import EvaluationRunStatus, ReleaseDecision
+from models.enums import (
+    DeploymentStatus,
+    EvaluationRunStatus,
+    IntegrationSyncStatus,
+    ReleaseDecision,
+)
 
 if TYPE_CHECKING:
     from models.application import AIApplication
@@ -40,6 +46,19 @@ class EvaluationRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=ReleaseDecision.PENDING,
         index=True,
     )
+    deployment_status: Mapped[DeploymentStatus] = mapped_column(
+        PostgreSQLEnum(DeploymentStatus, name="deployment_status", create_type=False),
+        default=DeploymentStatus.EVALUATING,
+        index=True,
+    )
+    servicenow_incident_number: Mapped[str | None] = mapped_column(String(100))
+    servicenow_sys_id: Mapped[str | None] = mapped_column(String(100))
+    servicenow_sync_status: Mapped[IntegrationSyncStatus] = mapped_column(
+        Enum(IntegrationSyncStatus, name="integration_sync_status"),
+        default=IntegrationSyncStatus.NOT_REQUIRED,
+        index=True,
+    )
+    report_s3_url: Mapped[str | None] = mapped_column(String(2048))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     total_items: Mapped[int] = mapped_column(Integer, default=0)

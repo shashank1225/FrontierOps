@@ -1,0 +1,66 @@
+name: Deploy to AWS
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: frontierops-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'shashank1225/FrontierOps'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+      - uses: docker/setup-buildx-action@v3
+      - id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push immutable image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/backend.Dockerfile
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+      - name: Initialize Terraform
+        working-directory: infra/terraform
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="key=frontierops/production.tfstate" -backend-config="region=${{ vars.AWS_REGION }}"
+      - name: Validate Terraform
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive && terraform validate
+      - name: Deploy infrastructure and service
+        working-directory: infra/terraform
+        env:
+          TF_VAR_container_image: ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+        run: terraform apply -auto-approve -input=false
+      - name: Run database migration as one-off Fargate task
+        working-directory: infra/terraform
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$(terraform output -raw ecs_cluster_name)" \
+            --task-definition "$(terraform output -raw task_definition_arn)" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=$(terraform output -json private_subnet_ids),securityGroups=[$(terraform output -raw ecs_security_group_id)],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]},{"name":"worker","command":["sh","-c","exit 0"]}]}' \
+            --query 'tasks[0].taskArn' --output text)
+          aws ecs wait tasks-stopped --cluster "$(terraform output -raw ecs_cluster_name)" --tasks "$TASK_ARN"
+          test "$(aws ecs describe-tasks --cluster "$(terraform output -raw ecs_cluster_name)" --tasks "$TASK_ARN" --query 'tasks[0].containers[?name==`api`].exitCode' --output text)" = "0"
+          aws ecs update-service --cluster "$(terraform output -raw ecs_cluster_name)" --service "$(terraform output -raw ecs_service_name)" --force-new-deployment
+      - name: Wait for ECS stability
+        run: aws ecs wait services-stable --cluster "${{ vars.ECS_CLUSTER }}" --services "${{ vars.ECS_SERVICE }}"

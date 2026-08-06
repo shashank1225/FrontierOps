@@ -5,7 +5,12 @@ from unittest.mock import AsyncMock
 
 from httpx import AsyncClient
 
-from models.enums import EvaluationRunStatus, ReleaseDecision
+from models.enums import (
+    DeploymentStatus,
+    EvaluationRunStatus,
+    IntegrationSyncStatus,
+    ReleaseDecision,
+)
 from models.evaluation import EvaluationResult, EvaluationRun
 from services.evaluation_history import EvaluationRunNotFoundError
 
@@ -41,6 +46,8 @@ def run_entity() -> EvaluationRun:
         model="llama3.2",
         status=EvaluationRunStatus.COMPLETED,
         release_decision=ReleaseDecision.APPROVED,
+        deployment_status=DeploymentStatus.APPROVED,
+        servicenow_sync_status=IntegrationSyncStatus.NOT_REQUIRED,
         started_at=now,
         completed_at=now,
         total_items=1,

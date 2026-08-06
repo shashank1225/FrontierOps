@@ -16,6 +16,7 @@ This is an engineering platform, not a chatbot.
 - React and TypeScript operational dashboard
 - OpenTelemetry traces, Prometheus metrics, Tempo, and provisioned Grafana dashboards
 - Docker Compose development environment and GitHub Actions release validation
+- AWS Fargate deployment with S3 reports, CloudWatch metrics, and ServiceNow incidents
 
 ## Architecture
 
@@ -31,6 +32,8 @@ flowchart LR
     P --> O["Ollama"]
     W --> SCORE["Metrics and release gates"]
     SCORE --> PG
+    SCORE --> S3["S3 JSON and HTML reports"]
+    SCORE --> SN["ServiceNow incident for blocked releases"]
     API --> OTEL["OpenTelemetry Collector"]
     W --> OTEL
     OTEL --> TEMPO["Tempo"]
@@ -62,6 +65,7 @@ The migration container upgrades PostgreSQL before the API and worker start.
 | Prometheus | http://localhost:9090 |
 | Tempo | http://localhost:3200 |
 | Ollama | http://localhost:11434 |
+| LocalStack S3 | http://localhost:4566 |
 
 Pull a local model before running evaluations:
 
@@ -87,6 +91,67 @@ The CI evaluation gate uses frozen responses and the same scorer and release-gat
 
 See [Deployment guide](docs/DEPLOYMENT.md) for configuration, migrations, health probes, scaling, and rollback. See [Security](SECURITY.md) before exposing FrontierOps beyond a trusted development network.
 
+### AWS architecture
+
+```mermaid
+flowchart TD
+    USER["User or dashboard"] --> ALB["Application Load Balancer"]
+    ALB --> API["ECS Fargate: FastAPI"]
+    API --> RDS["RDS PostgreSQL"]
+    API --> REDIS["ElastiCache Redis"]
+    REDIS --> WORKER["ECS Fargate: evaluation worker"]
+    WORKER --> RDS
+    WORKER --> S3["Private S3 reports bucket"]
+    WORKER --> CW["CloudWatch logs and metrics"]
+    WORKER --> SN["ServiceNow Table API"]
+    SM["Secrets Manager"] --> API
+    SM --> WORKER
+    GH["GitHub Actions OIDC"] --> ECR["ECR"]
+    GH --> ECS["ECS deployment"]
+```
+
+Terraform provisions the VPC, two availability zones, ALB, ECS service, worker, encrypted RDS and Redis, private versioned S3 storage, ECR, CloudWatch, Secrets Manager, autoscaling, and least-privilege task roles.
+
+```bash
+cd infra/terraform
+terraform init -backend-config="bucket=YOUR_STATE_BUCKET" -backend-config="key=frontierops/production.tfstate"
+terraform plan -var="container_image=ACCOUNT.dkr.ecr.REGION.amazonaws.com/frontierops:SHA"
+terraform apply
+```
+
+Populate the emitted ServiceNow secret with `instance_url`, `username`, and `password`, then apply with `-var=servicenow_enabled=true`. GitHub deployment requires repository variables for the OIDC role, region, state bucket, ECR repository, ECS cluster, and ECS service. It does not use AWS access keys.
+
+### ServiceNow workflow
+
+```mermaid
+flowchart LR
+    E["Evaluation completed"] --> G{"Release gate"}
+    G -->|Approved| STORE["Persist result"]
+    G -->|Blocked| REPORT["Upload reports to S3"]
+    REPORT --> INCIDENT["Create ServiceNow incident"]
+    INCIDENT --> IDS["Persist incident number, sys_id and sync status"]
+    INCIDENT -->|Unavailable| RETRY["Mark failed for later retry; evaluation remains complete"]
+```
+
+Blocked incidents contain application, prompt, model, quality, latency, failure rate, cost, gate failures, run ID, timestamp, and the report link.
+
+### Environment variables
+
+ServiceNow accepts the required unprefixed names: `SERVICENOW_ENABLED`, `SERVICENOW_INSTANCE_URL`, `SERVICENOW_USERNAME`, `SERVICENOW_PASSWORD`, and `SERVICENOW_INCIDENT_TABLE`. AWS report and metrics settings use `FRONTIEROPS_AWS_REGION`, `FRONTIEROPS_S3_REPORTS_BUCKET`, `FRONTIEROPS_S3_ENDPOINT_URL`, `FRONTIEROPS_CLOUDWATCH_METRICS_ENABLED`, and `FRONTIEROPS_CLOUDWATCH_NAMESPACE`.
+
+### Demo scenario
+
+1. Start Compose and create an application with a deliberately high minimum quality score.
+2. Run an evaluation whose answer misses required keywords.
+3. Confirm the release is `BLOCKED`, both reports exist in LocalStack S3, and the response contains ServiceNow synchronization fields.
+4. Set `SERVICENOW_ENABLED=true` with a test instance to demonstrate real incident creation.
+
+Screenshots to capture for a portfolio walkthrough: dashboard application list, blocked evaluation detail, S3 report, ServiceNow incident, CloudWatch metrics, and the GitHub deployment run.
+
+### Security and cost controls
+
+Resources are private by default, S3 public access is blocked, storage is encrypted, tasks run with scoped IAM roles, credentials live in Secrets Manager, ECR scanning is enabled, and the ALB should use an ACM certificate. Restrict ingress CIDRs and CORS before production use. Cost defaults use small RDS/Redis instances, lifecycle-expire old reports and images, and keep CloudWatch logs for 30 days. Production enables Multi-AZ RDS and therefore costs more; NAT Gateway, ALB, and observability ingestion are the main fixed costs.
+
 ## Project status
 
-Version 1.0.0 implements the complete portfolio scope: registration, datasets, evaluations, releases, prompt comparison, history, dashboard, observability, containers, and enforced CI gates.
+The cloud and ServiceNow extension is implemented in the working tree. AWS deployment is not claimed until account-specific variables, remote state, ServiceNow credentials, DNS/TLS, and budget controls are configured by the operator.

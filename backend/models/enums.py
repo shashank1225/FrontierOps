@@ -22,3 +22,10 @@ class ReleaseDecision(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     BLOCKED = "blocked"
+
+
+class IntegrationSyncStatus(StrEnum):
+    NOT_REQUIRED = "not_required"
+    PENDING = "pending"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"

@@ -4,8 +4,10 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from time import perf_counter
 
+import structlog
 from opentelemetry import trace
 
+from evaluation.completion import EvaluationCompletionService
 from evaluation.exceptions import EvaluationConfigurationError, PromptRenderingError
 from evaluation.metrics import MetricInput
 from evaluation.prompt_renderer import PromptRenderer
@@ -22,6 +24,7 @@ from providers.contracts import GenerationRequest, LLMProvider, ProviderResolver
 from providers.exceptions import ProviderError
 
 tracer = trace.get_tracer(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class EvaluationEngine:
@@ -36,6 +39,7 @@ class EvaluationEngine:
         scorer: EvaluationScorer | None = None,
         release_gate_evaluator: ReleaseGateEvaluator | None = None,
         clock: Callable[[], datetime] | None = None,
+        completion_service: EvaluationCompletionService | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._provider_resolver = provider_resolver
@@ -43,6 +47,7 @@ class EvaluationEngine:
         self._scorer = scorer or EvaluationScorer()
         self._release_gate_evaluator = release_gate_evaluator or ReleaseGateEvaluator()
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._completion_service = completion_service
 
     async def run(self, application_id: uuid.UUID) -> EvaluationRun:
         started_at = perf_counter()
@@ -58,6 +63,7 @@ class EvaluationEngine:
             return run
 
     async def _run(self, application_id: uuid.UUID) -> EvaluationRun:
+        await logger.ainfo("evaluation_started", application_id=str(application_id))
         async with self._unit_of_work_factory() as unit_of_work:
             application, prompt, dataset = await self._load_context(unit_of_work, application_id)
             provider = self._provider_resolver.get(application.provider)
@@ -73,6 +79,7 @@ class EvaluationEngine:
                 model=application.model,
                 status=EvaluationRunStatus.RUNNING,
                 release_decision=ReleaseDecision.PENDING,
+                deployment_status=DeploymentStatus.EVALUATING,
                 started_at=self._clock(),
                 total_items=len(dataset.items),
                 successful_items=0,
@@ -120,10 +127,28 @@ class EvaluationEngine:
                     if gate_result.decision is ReleaseDecision.APPROVED
                     else DeploymentStatus.BLOCKED
                 )
+                await logger.ainfo(
+                    "release_gate_passed"
+                    if gate_result.decision is ReleaseDecision.APPROVED
+                    else "release_gate_blocked",
+                    evaluation_run_id=str(run.id),
+                    gate_failure_count=len(gate_result.failures),
+                )
+
+            run.deployment_status = application.deployment_status
+            if self._completion_service is not None:
+                await self._completion_service.complete(run, application, prompt)
 
             await unit_of_work.runs.save(run)
             await unit_of_work.applications.save(application)
             await unit_of_work.commit()
+            await logger.ainfo(
+                "evaluation_completed",
+                evaluation_run_id=str(run.id),
+                release_decision=run.release_decision.value,
+                quality_score=run.average_quality_score,
+                average_latency_ms=run.average_latency_ms,
+            )
             return run
 
     async def _load_context(
@@ -185,6 +210,12 @@ class EvaluationEngine:
                 provider_metadata=generation.provider_metadata,
             )
         except ProviderError as error:
+            await logger.awarning(
+                "provider_call_failed",
+                evaluation_run_id=str(run.id),
+                dataset_item_id=str(item.id),
+                error_type=type(error).__name__,
+            )
             return EvaluationResult(
                 run_id=run.id,
                 dataset_item_id=item.id,

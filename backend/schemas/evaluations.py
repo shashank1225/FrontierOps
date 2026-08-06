@@ -5,7 +5,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from models.enums import EvaluationRunStatus, ReleaseDecision
+from models.enums import (
+    DeploymentStatus,
+    EvaluationRunStatus,
+    IntegrationSyncStatus,
+    ReleaseDecision,
+)
 
 
 class EvaluationResultResponse(BaseModel):
@@ -38,6 +43,11 @@ class EvaluationRunSummaryResponse(BaseModel):
     model: str
     status: EvaluationRunStatus
     release_decision: ReleaseDecision
+    deployment_status: DeploymentStatus
+    servicenow_incident_number: str | None
+    servicenow_sys_id: str | None
+    servicenow_sync_status: IntegrationSyncStatus
+    report_s3_url: str | None
     started_at: datetime | None
     completed_at: datetime | None
     total_items: int

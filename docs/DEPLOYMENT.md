@@ -11,6 +11,8 @@ Required infrastructure:
 - Ollama or another implemented provider endpoint
 - OTLP-compatible collector when telemetry is enabled
 
+The included Terraform configuration provisions AWS ALB, ECS Fargate API and worker containers, ECR, RDS PostgreSQL, ElastiCache Redis, S3, CloudWatch, IAM, and Secrets Manager. ServiceNow is external and accessed over its Table API.
+
 Set `FRONTIEROPS_ENVIRONMENT=production`, restrict `FRONTIEROPS_CORS_ORIGINS` to trusted dashboard origins, and use TLS at the ingress or load balancer.
 
 ## Migrations
@@ -48,6 +50,8 @@ API replicas are stateless and may scale horizontally. Worker replicas use Redis
 7. Roll out the dashboard.
 
 GitHub Actions performs steps 1–3, verifies migrations against PostgreSQL, and prevents image builds when any prerequisite fails.
+
+The deployment workflow authenticates with GitHub OIDC, pushes an immutable commit-SHA image to ECR, applies Terraform, runs `alembic upgrade head` as a one-off Fargate task, forces a fresh service deployment, and waits for ECS stability. Configure GitHub environment protection for production.
 
 ## Rollback
 
