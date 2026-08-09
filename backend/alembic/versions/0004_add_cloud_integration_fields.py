@@ -1,6 +1,6 @@
 """Add AWS report and ServiceNow synchronization fields.
 
-Revision ID: 0004_add_cloud_integration_fields
+Revision ID: 0004_cloud_integrations
 Revises: 0003_normalize_unique_indexes
 """
 
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "0004_add_cloud_integration_fields"
+revision: str = "0004_cloud_integrations"
 down_revision: str | None = "0003_normalize_unique_indexes"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
