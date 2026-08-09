@@ -89,6 +89,7 @@ class EvaluationEngine:
             await unit_of_work.runs.add(run)
             await unit_of_work.commit()
 
+            persisted_results: list[EvaluationResult] = []
             for item in dataset.items:
                 try:
                     with tracer.start_as_current_span(
@@ -112,11 +113,12 @@ class EvaluationEngine:
                     ]
                     application.deployment_status = DeploymentStatus.BLOCKED
                     break
-                run.results.append(result)
                 await unit_of_work.runs.add_result(result)
                 await unit_of_work.commit()
+                persisted_results.append(result)
             else:
-                self._complete(run)
+                run = await self._reload_run_with_results(unit_of_work, run.id)
+                self._complete(run, persisted_results)
                 gate_result = self._release_gate_evaluator.evaluate(
                     run, application.release_gate_policy
                 )
@@ -135,6 +137,8 @@ class EvaluationEngine:
                     gate_failure_count=len(gate_result.failures),
                 )
 
+            if run.status is EvaluationRunStatus.FAILED:
+                run = await self._reload_run_with_results(unit_of_work, run.id)
             run.deployment_status = application.deployment_status
             if self._completion_service is not None:
                 await self._completion_service.complete(run, application, prompt)
@@ -165,6 +169,15 @@ class EvaluationEngine:
         if dataset is None:
             raise EvaluationConfigurationError("Application evaluation dataset was not found.")
         return application, application.active_prompt_version, dataset
+
+    @staticmethod
+    async def _reload_run_with_results(
+        unit_of_work: EvaluationUnitOfWork, run_id: uuid.UUID
+    ) -> EvaluationRun:
+        run = await unit_of_work.runs.get(run_id)
+        if run is None:
+            raise RuntimeError(f"Evaluation run '{run_id}' could not be reloaded.")
+        return run
 
     def _validate_context(self, prompt: PromptVersion, dataset: EvaluationDataset) -> None:
         if not dataset.items:
@@ -225,8 +238,8 @@ class EvaluationEngine:
                 provider_metadata={},
             )
 
-    def _complete(self, run: EvaluationRun) -> None:
-        successful_results = [result for result in run.results if result.succeeded]
+    def _complete(self, run: EvaluationRun, results: list[EvaluationResult]) -> None:
+        successful_results = [result for result in results if result.succeeded]
         latencies = [
             result.latency_ms for result in successful_results if result.latency_ms is not None
         ]

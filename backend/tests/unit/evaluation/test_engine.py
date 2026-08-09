@@ -12,7 +12,7 @@ from evaluation.unit_of_work import EvaluationUnitOfWork
 from models.application import AIApplication
 from models.dataset import EvaluationDataset
 from models.enums import DeploymentStatus, EvaluationRunStatus, ReleaseDecision
-from models.evaluation import EvaluationRun
+from models.evaluation import EvaluationResult, EvaluationRun
 from providers.contracts import GenerationResult, GenerationUsage, ProviderResolver
 from providers.exceptions import ProviderTimeoutError
 
@@ -26,9 +26,16 @@ class FakeUnitOfWork:
 
         async def add_run(run: EvaluationRun) -> EvaluationRun:
             run.id = uuid.uuid4()
+            self.runs.get.return_value = run
             return run
 
+        async def add_result(result: EvaluationResult) -> EvaluationResult:
+            persisted_run = self.runs.get.return_value
+            persisted_run.results = [*persisted_run.results, result]
+            return result
+
         self.runs.add.side_effect = add_run
+        self.runs.add_result.side_effect = add_result
 
     async def __aenter__(self) -> Self:
         return self
