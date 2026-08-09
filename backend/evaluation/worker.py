@@ -1,5 +1,7 @@
+import re
 import socket
 
+import structlog
 from opentelemetry import trace
 
 from evaluation.engine import EvaluationEngine
@@ -8,6 +10,19 @@ from models.enums import EvaluationRunStatus
 from observability.metrics import WORKER_JOBS
 
 tracer = trace.get_tracer(__name__)
+logger = structlog.get_logger(__name__)
+
+_URL_CREDENTIALS = re.compile(r"(https?://)[^\s/:@]+:[^\s/@]+@", re.IGNORECASE)
+_SENSITIVE_ASSIGNMENT = re.compile(
+    r"\b(password|passwd|pwd|token|api[_-]?key|secret|authorization)=([^\s&]+)",
+    re.IGNORECASE,
+)
+
+
+def _safe_error_message(error: Exception) -> str:
+    message = str(error).strip() or type(error).__name__
+    message = _URL_CREDENTIALS.sub(r"\1[REDACTED]@", message)
+    return _SENSITIVE_ASSIGNMENT.sub(r"\1=[REDACTED]", message)[:2000]
 
 
 class EvaluationWorker:
@@ -45,10 +60,17 @@ class EvaluationWorker:
                 else:
                     await self._queue.mark_completed(message.job, run.id)
                     WORKER_JOBS.labels("completed").inc()
-            except Exception:
-                await self._queue.mark_failed(
-                    message.job, "Evaluation job failed before producing a completed run."
+            except Exception as error:
+                error_message = _safe_error_message(error)
+                safe_error = RuntimeError(error_message)
+                logger.exception(
+                    "evaluation_job_failed",
+                    job_id=str(message.job.id),
+                    application_id=str(message.job.application_id),
+                    error_type=type(error).__name__,
+                    exc_info=(type(safe_error), safe_error, error.__traceback__),
                 )
+                await self._queue.mark_failed(message.job, error_message)
                 WORKER_JOBS.labels("failed").inc()
                 await self._queue.acknowledge(message)
             else:

@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 from typing import cast
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from evaluation.engine import EvaluationEngine
 from evaluation.jobs import EvaluationJob, EvaluationJobQueue, EvaluationQueueMessage
@@ -42,19 +42,50 @@ async def test_worker_completes_and_acknowledges_job() -> None:
     queue.acknowledge.assert_awaited_once_with(queued_message)
 
 
-async def test_worker_records_sanitized_failure_and_acknowledges() -> None:
+async def test_worker_records_concrete_failure_logs_exception_and_acknowledges() -> None:
     queue = AsyncMock()
     engine = AsyncMock()
     queued_message = message()
     queue.consume.return_value = queued_message
-    engine.run.side_effect = RuntimeError("secret")
+    engine.run.side_effect = RuntimeError("provider connection refused")
     worker = EvaluationWorker(cast(EvaluationJobQueue, queue), cast(EvaluationEngine, engine))
 
-    await worker.run_once(block_ms=1)
+    with patch("evaluation.worker.logger") as worker_logger:
+        await worker.run_once(block_ms=1)
 
     failure = queue.mark_failed.await_args.args[1]
-    assert "secret" not in failure
+    assert failure == "provider connection refused"
+    worker_logger.exception.assert_called_once_with(
+        "evaluation_job_failed",
+        job_id=str(queued_message.job.id),
+        application_id=str(queued_message.job.application_id),
+        error_type="RuntimeError",
+        exc_info=worker_logger.exception.call_args.kwargs["exc_info"],
+    )
+    logged_exception = worker_logger.exception.call_args.kwargs["exc_info"][1]
+    assert str(logged_exception) == "provider connection refused"
     queue.acknowledge.assert_awaited_once_with(queued_message)
+
+
+async def test_worker_redacts_credentials_from_failure_state_and_log() -> None:
+    queue = AsyncMock()
+    engine = AsyncMock()
+    queued_message = message()
+    queue.consume.return_value = queued_message
+    engine.run.side_effect = RuntimeError(
+        "failed https://api-user:private-password@example.service-now.com password=hunter2"
+    )
+    worker = EvaluationWorker(cast(EvaluationJobQueue, queue), cast(EvaluationEngine, engine))
+
+    with patch("evaluation.worker.logger") as worker_logger:
+        await worker.run_once(block_ms=1)
+
+    stored_message = queue.mark_failed.await_args.args[1]
+    logged_exception = worker_logger.exception.call_args.kwargs["exc_info"][1]
+    assert "private-password" not in stored_message
+    assert "hunter2" not in stored_message
+    assert "private-password" not in str(logged_exception)
+    assert "hunter2" not in str(logged_exception)
 
 
 async def test_worker_returns_false_when_queue_is_empty() -> None:
