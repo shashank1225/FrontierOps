@@ -20,7 +20,13 @@ class SQLAlchemyApplicationRepository(SQLAlchemyRepository[AIApplication]):
 
     async def add(self, application: AIApplication) -> AIApplication:
         try:
-            return await super().add(application)
+            self._session.add(application)
+            await self._session.flush()
+            await self._session.refresh(application)
+            persisted = await self.get(application.id)
+            if persisted is None:
+                raise RuntimeError("Inserted application could not be reloaded.")
+            return persisted
         except IntegrityError as error:
             raise RepositoryConflictError from error
 
@@ -59,4 +65,8 @@ class SQLAlchemyApplicationRepository(SQLAlchemyRepository[AIApplication]):
     async def save(self, application: AIApplication) -> AIApplication:
         self._session.add(application)
         await self._session.flush()
-        return application
+        await self._session.refresh(application)
+        persisted = await self.get(application.id)
+        if persisted is None:
+            raise RuntimeError("Updated application could not be reloaded.")
+        return persisted

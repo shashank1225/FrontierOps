@@ -29,6 +29,7 @@ async def test_register_application_returns_created_aggregate(
     assert response.status_code == 201
     assert response.json()["deployment_status"] == "draft"
     assert response.json()["active_prompt_version"]["version"] == 1
+    assert response.json()["updated_at"] is not None
     command = application_service.register.await_args.args[0]
     assert command.name == "Support Copilot"
     assert command.provider == "ollama"

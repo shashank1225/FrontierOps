@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 from typing import cast
 
 import pytest
-from sqlalchemy import Table
+from sqlalchemy import Table, inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from models.application import AIApplication
@@ -41,8 +41,14 @@ async def test_repository_persists_and_loads_application_aggregate(
     application.active_prompt_version = prompt
     application.release_gate_policy = ReleaseGatePolicy()
 
-    await repository.add(application)
-    application_id = application.id
+    created = await repository.add(application)
+    application_id = created.id
+
+    assert created.updated_at is not None
+    assert created.created_at is not None
+    assert "active_prompt_version" not in inspect(created).unloaded
+    assert "release_gate_policy" not in inspect(created).unloaded
+    assert created.active_prompt_version.created_at is not None
     await session.commit()
     session.expire_all()
 
