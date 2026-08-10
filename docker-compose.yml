@@ -53,6 +53,8 @@ services:
       FRONTIEROPS_S3_ENDPOINT_URL: ${FRONTIEROPS_S3_ENDPOINT_URL:-}
       FRONTIEROPS_S3_REPORTS_BUCKET: ${FRONTIEROPS_S3_REPORTS_BUCKET}
       AWS_PROFILE: ${AWS_PROFILE:-frontierops}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-ap-south-1}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
     volumes:
       - ~/.aws:/home/frontierops/.aws:ro
     ports:
@@ -96,6 +98,8 @@ services:
       FRONTIEROPS_S3_ENDPOINT_URL: ${FRONTIEROPS_S3_ENDPOINT_URL:-}
       FRONTIEROPS_S3_REPORTS_BUCKET: ${FRONTIEROPS_S3_REPORTS_BUCKET}
       AWS_PROFILE: ${AWS_PROFILE:-frontierops}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-ap-south-1}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
     volumes:
       - ~/.aws:/home/frontierops/.aws:ro
     expose:
