@@ -135,18 +135,38 @@ flowchart LR
 
 Blocked incidents contain application, prompt, model, quality, latency, failure rate, cost, gate failures, run ID, timestamp, and the report link.
 
+#### Verified ServiceNow integration
+
+The following evidence was captured from a real end-to-end demo. An Ollama provider failure caused the release gate to block evaluation run `3232d1f5-1f37-493f-80d1-ac01be7ab37e`. FrontierOps then created ServiceNow incident `INC0010002` and persisted the incident number, ServiceNow `sys_id`, and successful synchronization status on the evaluation run.
+
+| Evidence | What it demonstrates |
+|---|---|
+| ![ServiceNow incident INC0010002 created by FrontierOps](docs/assets/servicenow/incident-created.png) | A blocked FrontierOps release produced a real incident in ServiceNow. |
+| ![FrontierOps worker events for release blocking and ServiceNow incident creation](docs/assets/servicenow/worker-integration-events.png) | Structured worker events connect the provider failure, blocked gate, report upload, and incident creation. |
+| ![Evaluation API response containing persisted ServiceNow synchronization fields](docs/assets/servicenow/api-run-persistence.png) | The evaluation API persisted the incident reference and `servicenow_sync_status: succeeded`. |
+| ![FrontierOps dashboard showing the blocked application release](docs/assets/servicenow/dashboard-blocked-release.png) | The dashboard reflects the same blocked deployment decision for operators. |
+
+To enable the integration locally, place the ServiceNow settings listed below in an ignored `.env` file and recreate the API and worker. Never commit the instance password.
+
+```bash
+docker compose up -d --build --force-recreate api worker
+docker compose logs -f worker
+```
+
+For a successful blocked-release demonstration, the worker should emit `release_gate_blocked`, `report_upload_completed`, and `servicenow_incident_created`. The evaluation-run response should contain a non-empty `servicenow_incident_number` and a `servicenow_sync_status` of `succeeded`.
+
 ### Environment variables
 
-ServiceNow accepts the required unprefixed names: `SERVICENOW_ENABLED`, `SERVICENOW_INSTANCE_URL`, `SERVICENOW_USERNAME`, `SERVICENOW_PASSWORD`, and `SERVICENOW_INCIDENT_TABLE`. AWS report and metrics settings use `FRONTIEROPS_AWS_REGION`, `FRONTIEROPS_S3_REPORTS_BUCKET`, `FRONTIEROPS_S3_ENDPOINT_URL`, `FRONTIEROPS_CLOUDWATCH_METRICS_ENABLED`, and `FRONTIEROPS_CLOUDWATCH_NAMESPACE`.
+ServiceNow accepts the required unprefixed names: `SERVICENOW_ENABLED`, `SERVICENOW_INSTANCE_URL`, `SERVICENOW_USERNAME`, `SERVICENOW_PASSWORD`, and `SERVICENOW_INCIDENT_TABLE`. AWS report and metrics settings use `FRONTIEROPS_AWS_REGION`, `FRONTIEROPS_S3_REPORTS_BUCKET`, `FRONTIEROPS_S3_ENDPOINT_URL`, `FRONTIEROPS_CLOUDWATCH_METRICS_ENABLED`, and `FRONTIEROPS_CLOUDWATCH_NAMESPACE`. Local browser-login development additionally uses `AWS_PROFILE`, `AWS_DEFAULT_REGION`, and `AWS_REGION`; Compose mounts the host AWS configuration read-only for the non-root `frontierops` container user.
 
 ### Demo scenario
 
 1. Start Compose and create an application with a deliberately high minimum quality score.
 2. Run an evaluation whose answer misses required keywords.
-3. Confirm the release is `BLOCKED`, both reports exist in LocalStack S3, and the response contains ServiceNow synchronization fields.
-4. Set `SERVICENOW_ENABLED=true` with a test instance to demonstrate real incident creation.
+3. Confirm the release is `BLOCKED`, the reports exist in the configured S3 bucket, and the response contains ServiceNow synchronization fields.
+4. Confirm the corresponding incident appears in the configured ServiceNow test instance.
 
-Screenshots to capture for a portfolio walkthrough: dashboard application list, blocked evaluation detail, S3 report, ServiceNow incident, CloudWatch metrics, and the GitHub deployment run.
+The verified screenshots above cover the dashboard decision, worker integration events, persisted API state, and ServiceNow incident. Additional portfolio evidence can include the S3 report object, Grafana traces, and the GitHub Actions run.
 
 ### Security and cost controls
 
