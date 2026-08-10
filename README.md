@@ -16,7 +16,7 @@ This is an engineering platform, not a chatbot.
 - React and TypeScript operational dashboard
 - OpenTelemetry traces, Prometheus metrics, Tempo, and provisioned Grafana dashboards
 - Docker Compose development environment and GitHub Actions release validation
-- AWS Fargate deployment with S3 reports, CloudWatch metrics, and ServiceNow incidents
+- AWS deployment blueprint for ECS Fargate, S3 reports, CloudWatch metrics, and ServiceNow incidents
 
 ## Architecture
 
@@ -54,7 +54,7 @@ cp .env.example .env
 docker compose --profile ai up --build
 ```
 
-The migration container upgrades PostgreSQL before the API and worker start.
+The example environment targets LocalStack S3 with non-secret dummy credentials. The migration container upgrades PostgreSQL before the API and worker start.
 
 | Surface | Address |
 |---|---|
@@ -121,7 +121,11 @@ The local worker has been validated against real Amazon S3 in `ap-south-1` using
 | ![Amazon S3 evaluation-reports prefix](docs/assets/aws/s3-evaluation-prefix.png) | FrontierOps organizes report artifacts beneath an `evaluation-reports/` prefix. |
 | ![FrontierOps reports bucket in Amazon S3](docs/assets/aws/s3-bucket-region.png) | The dedicated reports bucket exists in `ap-south-1`. |
 
-For local development, Compose passes `AWS_PROFILE`, `AWS_DEFAULT_REGION`, and `AWS_REGION` to the API and worker and mounts the host AWS configuration read-only at `/home/frontierops/.aws`. The backend image includes AWS CLI v2 so Boto3 can execute the configured credential process. A safe read-only connectivity check is:
+For local development, Compose passes `AWS_PROFILE`, `AWS_DEFAULT_REGION`, and `AWS_REGION` to the API and worker and mounts the host AWS configuration read-only at `/home/frontierops/.aws`. The backend image includes AWS CLI v2 so Boto3 can execute the configured credential process.
+
+For a real-AWS local demo, replace the LocalStack values in your ignored `.env`: set `FRONTIEROPS_S3_REPORTS_BUCKET` to your bucket, leave `FRONTIEROPS_S3_ENDPOINT_URL` empty, set the three AWS profile/region variables, and remove the dummy `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` entries. Environment credentials take precedence over the profile credential process.
+
+A safe read-only connectivity check is:
 
 ```bash
 docker compose exec worker python -c '
@@ -178,7 +182,7 @@ docker compose up -d --build --force-recreate api worker
 docker compose logs -f worker
 ```
 
-For a successful blocked-release demonstration, the worker should emit `release_gate_blocked`, `report_upload_completed`, and `servicenow_incident_created`. The evaluation-run response should contain a non-empty `servicenow_incident_number` and a `servicenow_sync_status` of `succeeded`.
+For a successful blocked-release demonstration, the worker should emit `release_gate_blocked`, `report_uploaded`, and `servicenow_incident_created`. The evaluation-run response should contain a non-empty `servicenow_incident_number` and a `servicenow_sync_status` of `succeeded`.
 
 ### Environment variables
 
@@ -199,4 +203,4 @@ Resources are private by default, S3 public access is blocked, storage is encryp
 
 ## Project status
 
-The cloud and ServiceNow extension is implemented in the working tree. AWS deployment is not claimed until account-specific variables, remote state, ServiceNow credentials, DNS/TLS, and budget controls are configured by the operator.
+Real S3 report upload and ServiceNow incident creation have been demonstrated locally and are documented above. The Terraform infrastructure and GitHub Actions deployment workflow are implemented in the repository, but a complete ECS production deployment is not claimed until account-specific variables, remote state, DNS/TLS, secrets, and budget controls are configured and verified by the operator.
