@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, AnyHttpUrl, Field, RedisDsn, SecretStr
+from pydantic import AliasChoices, AnyHttpUrl, Field, RedisDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     s3_endpoint_url: AnyHttpUrl | None = None
     cloudwatch_metrics_enabled: bool = False
     cloudwatch_namespace: str = "FrontierOps"
+
+    @field_validator("s3_endpoint_url", mode="before")
+    @classmethod
+    def empty_s3_endpoint_uses_aws_default(cls, value: object) -> object:
+        """Treat a blank endpoint override as a request for the standard AWS endpoint."""
+        return None if value == "" else value
 
 
 @lru_cache

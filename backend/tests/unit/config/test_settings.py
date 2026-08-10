@@ -19,3 +19,11 @@ def test_settings_define_bounded_provider_timeout() -> None:
     settings = Settings(provider_timeout_seconds=30)
 
     assert settings.provider_timeout_seconds == 30
+
+
+def test_empty_s3_endpoint_uses_aws_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FRONTIEROPS_S3_ENDPOINT_URL", "")
+
+    settings = Settings()
+
+    assert settings.s3_endpoint_url is None

@@ -49,10 +49,11 @@ services:
       FRONTIEROPS_OLLAMA_BASE_URL: http://ollama:11434
       FRONTIEROPS_OTLP_ENDPOINT: http://otel-collector:4318
       FRONTIEROPS_TELEMETRY_ENABLED: "true"
-      FRONTIEROPS_S3_ENDPOINT_URL: http://localstack:4566
-      FRONTIEROPS_S3_REPORTS_BUCKET: frontierops-local
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
+      FRONTIEROPS_AWS_REGION: ${FRONTIEROPS_AWS_REGION:-ap-south-1}
+      FRONTIEROPS_S3_ENDPOINT_URL: ${FRONTIEROPS_S3_ENDPOINT_URL:-}
+      FRONTIEROPS_S3_REPORTS_BUCKET: ${FRONTIEROPS_S3_REPORTS_BUCKET}
+    volumes:
+      - ~/.aws:/root/.aws:ro
     ports:
       - "8000:8000"
     depends_on:
@@ -90,10 +91,11 @@ services:
       FRONTIEROPS_SERVICE_NAME: frontierops-worker
       FRONTIEROPS_OTLP_ENDPOINT: http://otel-collector:4318
       FRONTIEROPS_TELEMETRY_ENABLED: "true"
-      FRONTIEROPS_S3_ENDPOINT_URL: http://localstack:4566
-      FRONTIEROPS_S3_REPORTS_BUCKET: frontierops-local
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
+      FRONTIEROPS_AWS_REGION: ${FRONTIEROPS_AWS_REGION:-ap-south-1}
+      FRONTIEROPS_S3_ENDPOINT_URL: ${FRONTIEROPS_S3_ENDPOINT_URL:-}
+      FRONTIEROPS_S3_REPORTS_BUCKET: ${FRONTIEROPS_S3_REPORTS_BUCKET}
+    volumes:
+      - ~/.aws:/root/.aws:ro
     expose:
       - "9000"
     depends_on:
