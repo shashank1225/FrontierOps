@@ -1,3 +1,5 @@
+FROM public.ecr.aws/aws-cli/aws-cli:2.36.19 AS aws-cli
+
 FROM python:3.12-slim AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -22,8 +24,10 @@ RUN groupadd --system frontierops \
 
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=aws-cli /usr/local/aws-cli /usr/local/aws-cli
 COPY backend /app
-RUN chown -R frontierops:frontierops /app
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
+    && chown -R frontierops:frontierops /app
 USER frontierops
 
 EXPOSE 8000
