@@ -110,6 +110,31 @@ flowchart TD
     GH --> ECS["ECS deployment"]
 ```
 
+#### Verified AWS S3 integration
+
+The local worker has been validated against real Amazon S3 in `ap-south-1` using temporary AWS browser-login credentials and the AWS CLI `credential_process` flow—no long-lived access keys are stored in the repository. Evaluation run `6f35a88a-e196-473b-92f9-78f6c5442104` uploaded its generated HTML report beneath the application and run identifiers in the configured reports bucket.
+
+| Evidence | What it demonstrates |
+|---|---|
+| ![FrontierOps worker reporting a successful S3 upload](docs/assets/aws/worker-report-upload.png) | The worker emitted `report_uploaded` with the real `s3://` report URI before completing the blocked evaluation. |
+| ![Amazon S3 HTML evaluation report object](docs/assets/aws/s3-report-object.png) | The generated `report.html` object exists in Amazon S3 in the Mumbai region. |
+| ![Amazon S3 evaluation-reports prefix](docs/assets/aws/s3-evaluation-prefix.png) | FrontierOps organizes report artifacts beneath an `evaluation-reports/` prefix. |
+| ![FrontierOps reports bucket in Amazon S3](docs/assets/aws/s3-bucket-region.png) | The dedicated reports bucket exists in `ap-south-1`. |
+
+For local development, Compose passes `AWS_PROFILE`, `AWS_DEFAULT_REGION`, and `AWS_REGION` to the API and worker and mounts the host AWS configuration read-only at `/home/frontierops/.aws`. The backend image includes AWS CLI v2 so Boto3 can execute the configured credential process. A safe read-only connectivity check is:
+
+```bash
+docker compose exec worker python -c '
+import boto3, os
+session = boto3.Session(profile_name=os.getenv("AWS_PROFILE", "frontierops"))
+bucket = os.environ["FRONTIEROPS_S3_REPORTS_BUCKET"]
+session.client("s3").head_bucket(Bucket=bucket)
+print("S3 access OK:", bucket)
+'
+```
+
+Production ECS tasks use scoped IAM task roles instead of mounted local profiles or static credentials.
+
 Terraform provisions the VPC, two availability zones, ALB, ECS service, worker, encrypted RDS and Redis, private versioned S3 storage, ECR, CloudWatch, Secrets Manager, autoscaling, and least-privilege task roles.
 
 ```bash
